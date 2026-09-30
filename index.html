@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Hockey</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+        --bg: #0a0a0f; --panel: #14141c; --panel-2: #1c1c26; --border: #2a2a38;
+        --ink: #e8e8f0; --ink-dim: #8a8a9d; --ink-faint: #4a4a5d;
+        --accent: #4a6cf7; --accent-2: #00d4ff;
+        --success: #2dd47a; --error: #ff4d5c; --warn: #ffb020; --hot: #ff6b35;
+        --radius: 14px;
+    }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        background: var(--bg); color: var(--ink); min-height: 100vh;
+        padding: 1rem 0.9rem 6rem; font-size: 15px; line-height: 1.5;
+        max-width: 900px; margin: 0 auto;
+    }
+    header { margin-bottom: 1rem; text-align: center; }
+    h1 {
+        font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent; margin-bottom: 0.2rem;
+    }
+    .subtitle { font-size: 0.72rem; color: var(--ink-dim); }
+
+    .toast {
+        position: fixed; top: 1.2rem; left: 50%;
+        transform: translateX(-50%) translateY(-100px);
+        background: var(--panel); color: #fff;
+        padding: 0.8rem 1.2rem; border-radius: 10px;
+        font-size: 0.82rem; font-weight: 600;
+        box-shadow: 0 4px 30px rgba(0,0,0,0.6);
+        z-index: 1000; opacity: 0;
+        transition: transform 0.35s ease, opacity 0.35s ease;
+        max-width: 90vw; text-align: center;
+        border: 1px solid var(--border);
+    }
+    .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.success { border-color: var(--success); color: var(--success); }
+    .toast.error { border-color: var(--error); color: var(--error); }
+    .toast.warn { border-color: var(--warn); color: var(--warn); }
+
+    .info-banner {
+        background: linear-gradient(135deg, rgba(74,108,247,0.12), rgba(0,212,255,0.08));
+        border-left: 3px solid var(--accent);
+        padding: 0.7rem 0.85rem; border-radius: 8px;
+        font-size: 0.72rem; color: var(--ink-dim);
+        margin-bottom: 0.8rem; line-height: 1.45;
+    }
+    .info-banner strong { color: var(--ink); }
+
+    .backend-config {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 0.7rem 0.9rem;
+        margin-bottom: 0.8rem;
+    }
+    .backend-config label {
+        font-size: 0.68rem; color: var(--ink-dim);
+        text-transform: uppercase; letter-spacing: 0.06em;
+        font-weight: 700; display: block; margin-bottom: 0.35rem;
+    }
+    .backend-config input {
+        width: 100%; padding: 0.6rem 0.8rem; border-radius: 8px;
+        border: 1px solid var(--border); background: var(--bg);
+        color: var(--ink); font-family: ui-monospace, monospace;
+        font-size: 0.78rem; margin-bottom: 0.4rem;
+    }
+    .backend-config input:focus { outline: none; border-color: var(--accent); }
+    .backend-config button {
+        width: 100%; padding: 0.55rem; border-radius: 8px;
+        border: none; background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        color: #fff; font-size: 0.78rem; font-weight: 700;
+        font-family: inherit; cursor: pointer;
+    }
+    .backend-config button:active { opacity: 0.75; }
+    .backend-config .bc-hint {
+        font-size: 0.68rem; color: var(--ink-faint);
+        margin-top: 0.4rem; line-height: 1.4;
+    }
+
+    .diag-panel {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 0.7rem 0.9rem;
+        margin-bottom: 0.8rem; font-size: 0.68rem;
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        line-height: 1.6;
+    }
+    .diag-panel .dp-row {
+        display: flex; justify-content: space-between;
+        gap: 0.5rem;
+    }
+    .diag-panel .dp-label { color: var(--ink-dim); flex-shrink: 0; }
+    .diag-panel .dp-value { color: var(--ink); text-align: right; word-break: break-all; }
+    .diag-panel .dp-value.ok { color: var(--success); }
+    .diag-panel .dp-value.err { color: var(--error); }
+    .diag-panel .dp-value.warn { color: var(--warn); }
+
+    .section {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: var(--radius); margin-bottom: 0.8rem;
+        overflow: hidden;
+    }
+    .section-header {
+        padding: 0.8rem 1rem; cursor: pointer; user-select: none;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+    .section-header:active { background: var(--panel-2); }
+    .section-title {
+        font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em;
+        color: var(--ink-dim); font-weight: 700;
+    }
+    .section-title .badge {
+        display: inline-block; margin-left: 0.4rem; padding: 0.1rem 0.5rem;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        color: #fff; border-radius: 10px;
+        font-size: 0.6rem; letter-spacing: 0;
+    }
+    .section-header .chevron {
+        font-size: 0.7rem; color: var(--ink-faint); transition: transform 0.2s;
+    }
+    .section.open .section-header .chevron { transform: rotate(180deg); }
+    .section-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+    .section.open .section-body { max-height: 20000px; }
+    .section-content { padding: 0 1rem 1rem; }
+
+    .date-bar {
+        display: flex; align-items: center; gap: 0.5rem;
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 0.7rem 0.9rem;
+        margin-bottom: 0.8rem;
+    }
+    .date-bar input[type="date"] {
+        flex: 1; padding: 0.55rem 0.7rem; border-radius: 8px;
+        border: 1px solid var(--border); background: var(--bg);
+        color: var(--ink); font-family: inherit; font-size: 0.85rem;
+        color-scheme: dark;
+    }
+    .date-bar input:focus { outline: none; border-color: var(--accent); }
+    .date-bar button {
+        padding: 0.55rem 0.9rem; border-radius: 8px;
+        border: none; background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        color: #fff; font-size: 0.82rem; font-weight: 700;
+        font-family: inherit; cursor: pointer;
+        white-space: nowrap;
+    }
+    .date-bar button:active { transform: scale(0.97); }
+    .date-bar button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .game-card {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 0.8rem 0.9rem;
+        margin-bottom: 0.6rem;
+    }
+    .game-card .gc-header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 0.5rem; font-size: 0.68rem; color: var(--ink-dim);
+        text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .game-card .gc-teams {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 0.6rem; margin-bottom: 0.5rem;
+    }
+    .game-card .gc-team {
+        flex: 1; text-align: center;
+        display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+    }
+    .game-card .gc-team img {
+        width: 44px; height: 44px;
+    }
+    .game-card .gc-team .gc-name {
+        font-size: 0.78rem; font-weight: 700;
+    }
+    .game-card .gc-vs {
+        font-size: 0.75rem; font-weight: 700; color: var(--ink-dim);
+    }
+    .game-card .gc-footer {
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 0.68rem; color: var(--ink-dim);
+    }
+    .game-card .gc-analyze-btn {
+        padding: 0.45rem 0.9rem; border-radius: 8px;
+        border: none; background: var(--panel-2); color: var(--ink);
+        font-size: 0.72rem; font-weight: 700; font-family: inherit;
+        cursor: pointer;
+    }
+    .game-card .gc-analyze-btn:active { opacity: 0.7; }
+    .game-card .gc-analyze-btn.primary {
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        color: #fff;
+    }
+    .game-card .gc-analyze-btn:disabled {
+        opacity: 0.5; cursor: not-allowed;
+    }
+
+    .player-card {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 0.8rem;
+        margin-bottom: 0.6rem;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+    .player-card:active { background: var(--panel-2); }
+    .player-card.top-1 { border-color: var(--hot); box-shadow: 0 0 12px rgba(255,107,53,0.15); }
+    .player-card.top-2 { border-color: var(--warn); }
+    .player-card.top-3 { border-color: var(--accent-2); }
+
+    .player-card .pc-header {
+        display: flex; align-items: center; gap: 0.6rem;
+        margin-bottom: 0.5rem;
+    }
+    .player-card .pc-rank {
+        width: 26px; height: 26px; border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #fff; font-size: 0.75rem; font-weight: 800;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .player-card.top-1 .pc-rank { background: linear-gradient(135deg, var(--hot), var(--warn)); }
+    .player-card .pc-photo {
+        width: 40px; height: 40px; border-radius: 50%;
+        background: var(--panel-2);
+        overflow: hidden; flex-shrink: 0;
+    }
+    .player-card .pc-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .player-card .pc-info { flex: 1; min-width: 0; }
+    .player-card .pc-name {
+        font-size: 0.88rem; font-weight: 700;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .player-card .pc-teams {
+        font-size: 0.68rem; color: var(--ink-dim);
+        display: flex; align-items: center; gap: 0.4rem;
+    }
+    .player-card .pc-teams img { width: 16px; height: 16px; }
+    .player-card .pc-score {
+        text-align: right; flex-shrink: 0;
+    }
+    .player-card .pc-score .pc-prob {
+        font-size: 1.2rem; font-weight: 900;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent;
+        line-height: 1;
+    }
+    .player-card .pc-score .pc-conf {
+        font-size: 0.6rem; color: var(--ink-dim);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .player-card .pc-bars {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem;
+        margin-bottom: 0.4rem;
+    }
+    .player-card .pc-bar {
+        font-size: 0.65rem;
+        color: var(--ink-dim);
+    }
+    .player-card .pc-bar .pc-bar-label {
+        display: flex; justify-content: space-between;
+        margin-bottom: 0.15rem;
+    }
+    .player-card .pc-bar .pc-bar-track {
+        height: 4px; background: var(--bg); border-radius: 2px;
+        overflow: hidden;
+    }
+    .player-card .pc-bar .pc-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        border-radius: 2px;
+    }
+    .player-card .pc-factors {
+        display: flex; flex-wrap: wrap; gap: 0.25rem;
+        margin-top: 0.4rem;
+    }
+    .player-card .pc-factor {
+        font-size: 0.6rem; padding: 0.15rem 0.45rem;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+    .player-card .pc-factor.pos {
+        background: rgba(45,212,122,0.15); color: var(--success);
+    }
+    .player-card .pc-factor.neg {
+        background: rgba(255,77,92,0.15); color: var(--error);
+    }
+
+    .modal-overlay {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.85);
+        z-index: 500;
+        display: none;
+        align-items: flex-end;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+    }
+    .modal-overlay.visible { display: flex; }
+    .modal {
+        background: var(--bg);
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+        width: 100%;
+        max-width: 900px;
+        max-height: 92vh;
+        overflow-y: auto;
+        padding: 1rem 1rem 2rem;
+        border: 1px solid var(--border);
+        border-bottom: none;
+        animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal .m-close {
+        display: flex; justify-content: flex-end;
+        margin-bottom: 0.5rem;
+    }
+    .modal .m-close button {
+        width: 32px; height: 32px; border-radius: 50%;
+        border: 1px solid var(--border); background: var(--panel);
+        color: var(--ink); font-size: 1rem; cursor: pointer;
+    }
+    .modal .m-header {
+        display: flex; align-items: center; gap: 0.8rem;
+        margin-bottom: 0.9rem;
+    }
+    .modal .m-header .m-photo {
+        width: 60px; height: 60px; border-radius: 50%;
+        overflow: hidden; background: var(--panel-2); flex-shrink: 0;
+    }
+    .modal .m-header .m-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .modal .m-header .m-name {
+        font-size: 1.1rem; font-weight: 800; line-height: 1.15;
+    }
+    .modal .m-header .m-team {
+        font-size: 0.75rem; color: var(--ink-dim);
+        display: flex; align-items: center; gap: 0.35rem;
+        margin-top: 0.2rem;
+    }
+    .modal .m-header .m-team img { width: 18px; height: 18px; }
+    .modal .m-prob {
+        display: grid; grid-template-columns: 1fr 1fr;
+        gap: 0.6rem; margin-bottom: 0.9rem;
+    }
+    .modal .m-prob-card {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: 12px; padding: 0.8rem; text-align: center;
+    }
+    .modal .m-prob-card .mpc-value {
+        font-size: 1.6rem; font-weight: 900;
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent;
+        line-height: 1.1;
+    }
+    .modal .m-prob-card .mpc-label {
+        font-size: 0.62rem; color: var(--ink-dim);
+        text-transform: uppercase; letter-spacing: 0.06em;
+        font-weight: 700;
+    }
+    .modal .m-section {
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: 12px; padding: 0.8rem 0.9rem;
+        margin-bottom: 0.7rem;
+    }
+    .modal .m-section-title {
+        font-size: 0.68rem; text-transform: uppercase;
+        letter-spacing: 0.08em; color: var(--accent-2);
+        font-weight: 800; margin-bottom: 0.5rem;
+    }
+    .modal .m-stars {
+        display: flex; justify-content: space-between;
+        align-items: center; padding: 0.3rem 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.8rem;
+    }
+    .modal .m-stars:last-child { border-bottom: none; }
+    .modal .m-stars .ms-label {
+        color: var(--ink-dim); font-size: 0.72rem;
+        text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .modal .m-stars .ms-value {
+        font-size: 0.88rem; letter-spacing: 0.05em;
+        color: var(--warn);
+    }
+    .modal .m-explain {
+        font-size: 0.8rem; line-height: 1.55;
+        color: var(--ink);
+    }
+    .modal .m-factors {
+        display: flex; flex-direction: column; gap: 0.4rem;
+    }
+    .modal .m-factor {
+        display: flex; gap: 0.4rem; align-items: flex-start;
+        font-size: 0.76rem; line-height: 1.4;
+    }
+    .modal .m-factor .mf-icon {
+        flex-shrink: 0; font-weight: 700;
+    }
+    .modal .m-factor.pos .mf-icon { color: var(--success); }
+    .modal .m-factor.neg .mf-icon { color: var(--error); }
+    .modal .m-factor.neu .mf-icon { color: var(--ink-dim); }
+    .modal .m-factor .mf-text { color: var(--ink); }
+
+    .loading-box {
+        text-align: center; padding: 2rem 1rem;
+        color: var(--ink-dim); font-size: 0.85rem;
+    }
+    .loading-box .spinner-lg {
+        display: inline-block;
+        width: 32px; height: 32px;
+        border: 3px solid var(--border);
+        border-top-color: var(--accent-2);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-bottom: 0.8rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state {
+        text-align: center; padding: 1.5rem 1rem;
+        color: var(--ink-faint); font-size: 0.8rem;
+    }
+    .empty-state .es-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+
+    .error-box {
+        background: rgba(255,77,92,0.1);
+        border: 1px solid var(--error);
+        border-radius: 10px; padding: 0.8rem;
+        margin-bottom: 0.8rem;
+        font-size: 0.82rem;
+    }
+    .error-box .eb-title {
+        color: var(--error); font-weight: 800; margin-bottom: 0.3rem;
+    }
+    .error-box .eb-msg { color: var(--ink-dim); font-size: 0.72rem; margin-bottom: 0.5rem; }
+    .error-box button {
+        padding: 0.45rem 0.9rem; border-radius: 8px;
+        border: 1px solid var(--error); background: transparent;
+        color: var(--error); font-size: 0.72rem; font-weight: 700;
+        font-family: inherit; cursor: pointer;
+    }
+
+    .status-bar {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        background: var(--panel); color: #fff; padding: 0.7rem 1rem;
+        font-size: 0.75rem; display: flex; align-items: center; gap: 0.5rem;
+        transform: translateY(100%); transition: transform 0.3s;
+        z-index: 100; border-top: 1px solid var(--border);
+    }
+    .status-bar.visible { transform: translateY(0); }
+    .status-bar .spinner {
+        width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.2);
+        border-top-color: var(--accent-2); border-radius: 50%;
+        animation: spin 0.8s linear infinite; flex-shrink: 0;
+    }
+
+    .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+    <h1>🏒 Hockey</h1>
+    <p class="subtitle">Analyse statistique des buteurs · API NHL via backend dédié</p>
+</header>
+
+<div class="info-banner">
+    <strong>Architecture :</strong> ton HTML appelle ton propre backend qui lui-même appelle l'API NHL sans restriction CORS. Aucune donnée n'est inventée.
+</div>
+
+<div class="backend-config" id="backend-config">
+    <label for="backend-url">URL de ton backend proxy NHL</label>
+    <input type="url" id="backend-url" placeholder="https://nhl-proxy-production-xxxx.up.railway.app" autocomplete="off" spellcheck="false">
+    <button id="backend-save-btn">Enregistrer et tester</button>
+    <div class="bc-hint">Sans cette URL, l'app ne peut pas fonctionner.</div>
+</div>
+
+<div class="diag-panel" id="diag-panel">
+    <div class="dp-row"><span class="dp-label">Backend :</span><span class="dp-value" id="diag-backend">non configuré</span></div>
+    <div class="dp-row"><span class="dp-label">Statut :</span><span class="dp-value warn" id="diag-status">En attente…</span></div>
+    <div class="dp-row"><span class="dp-label">HTTP :</span><span class="dp-value" id="diag-http">—</span></div>
+    <div class="dp-row"><span class="dp-label">Erreur :</span><span class="dp-value" id="diag-error">—</span></div>
+    <div class="dp-row"><span class="dp-label">Tentative :</span><span class="dp-value" id="diag-time">—</span></div>
+</div>
+
+<div class="date-bar">
+    <input type="date" id="date-input">
+    <button id="refresh-btn">🔄 Actualiser</button>
+</div>
+
+<div class="section open" id="section-games">
+    <div class="section-header" data-toggle="section-games">
+        <span class="section-title">🏒 Matchs du jour <span class="badge" id="games-badge">0</span></span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body" style="max-height:none;">
+        <div class="section-content">
+            <div id="games-container">
+                <div class="loading-box">
+                    <div class="spinner-lg"></div>
+                    <div>Chargement des matchs…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section open" id="section-top">
+    <div class="section-header" data-toggle="section-top">
+        <span class="section-title">⭐ Top profils buteurs <span class="badge" id="top-badge">0</span></span>
+        <span class="chevron">▼</span>
+    </div>
+    <div class="section-body" style="max-height:none;">
+        <div class="section-content">
+            <div id="top-container">
+                <div class="empty-state">
+                    <div class="es-icon">📊</div>
+                    <div>Cliquez sur <strong>Analyser</strong> sur un match pour générer les profils.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+    <div class="modal" id="modal"></div>
+</div>
+
+<div class="status-bar" id="status-bar">
+    <div class="spinner"></div>
+    <span id="status-text">Chargement…</span>
+</div>
+
+<div class="toast" id="toast">
+    <span class="toast-icon" id="toast-icon">✓</span>
+    <span id="toast-text">Message</span>
+</div>
+
+<script>
+const BACKEND_STORAGE = 'nhl_backend_url';
+const MODEL_WEIGHTS = { shots_volume: 0.25, goals_rate: 0.15, shooting_pct: 0.10, toi: 0.15, power_play: 0.15, opp_defense: 0.15, home_ice: 0.05 };
+const state = { backendUrl: '', date: new Date().toISOString().slice(0, 10), games: [], topPlayers: [], loading: false, cache: {} };
+
+function getBackendUrl() { try { return (localStorage.getItem(BACKEND_STORAGE) || '').trim(); } catch (e) { return ''; } }
+function setBackendUrl(url) { try { localStorage.setItem(BACKEND_STORAGE, url); } catch (e) {} state.backendUrl = url; }
+function updateBackendDiag() {
+    const el = document.getElementById('diag-backend');
+    if (!state.backendUrl) { el.textContent = 'non configuré'; el.className = 'dp-value warn'; }
+    else { el.textContent = state.backendUrl.replace(/^https?:\/\//, '').slice(0, 40); el.className = 'dp-value ok'; }
+}
+function updateDiag(status, http, error) {
+    const statusEl = document.getElementById('diag-status');
+    statusEl.textContent = status === 'ok' ? '✓ Connecté' : status === 'error' ? '✗ Erreur' : status === 'loading' ? '⏳ En cours…' : 'En attente…';
+    statusEl.className = 'dp-value ' + (status === 'ok' ? 'ok' : status === 'error' ? 'err' : 'warn');
+    document.getElementById('diag-http').textContent = http || '—';
+    document.getElementById('diag-error').textContent = error || '—';
+    document.getElementById('diag-time').textContent = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+async function fetchNHL(nhlPath) {
+    if (!state.backendUrl) throw new Error('Backend non configuré.');
+    const url = state.backendUrl.replace(/\/+$/, '') + '/nhl/' + nhlPath.replace(/^\/+/, '');
+    updateDiag('loading', '—', '—');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    try {
+        const res = await fetch(url, { method: 'GET', signal: controller.signal });
+        clearTimeout(timeout);
+        if (!res.ok) { updateDiag('error', res.status, 'HTTP ' + res.status); throw new Error('HTTP ' + res.status); }
+        const data = await res.json();
+        updateDiag('ok', res.status, '—');
+        return data;
+    } catch (e) {
+        clearTimeout(timeout);
+        if (e.name === 'AbortError') { updateDiag('error', '—', 'Timeout'); throw new Error('Timeout'); }
+        updateDiag('error', '—', e.message);
+        throw e;
+    }
+}
+async function testBackend(url) {
+    const cleanUrl = url.replace(/\/+$/, '');
+    updateDiag('loading', '—', '—');
+    try {
+        const res = await fetch(cleanUrl + '/health', { method: 'GET' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (data.ok) { updateDiag('ok', res.status, '—'); return true; }
+        throw new Error('Réponse inattendue');
+    } catch (e) { updateDiag('error', '—', 'Backend injoignable : ' + e.message); throw e; }
+}
+let toastTimeout = null;
+function showToast(message, type = 'success', duration = 2500) {
+    const toast = document.getElementById('toast');
+    const icon = document.getElementById('toast-icon');
+    const text = document.getElementById('toast-text');
+    toast.classList.remove('visible', 'success', 'error', 'warn');
+    void toast.offsetWidth;
+    const icons = { success: '✓', error: '✕', warn: '⚠' };
+    icon.textContent = icons[type] || '✓';
+    text.textContent = message;
+    toast.classList.add(type);
+    requestAnimationFrame(() => toast.classList.add('visible'));
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => toast.classList.remove('visible'), duration);
+}
+function setStatus(text) {
+    const bar = document.getElementById('status-bar');
+    const txt = document.getElementById('status-text');
+    if (text) { bar.classList.add('visible'); txt.textContent = text; }
+    else bar.classList.remove('visible');
+}
+function log(m) { console.log('[Hockey] ' + m); }
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function normalize(v, min, max) {
+    if (v === null || v === undefined || isNaN(v)) return null;
+    return Math.max(0, Math.min(1, (v - min) / (max - min)));
+}
+function starsFromScore(score) {
+    if (score === null || score === undefined) return '—';
+    const n = Math.max(1, Math.min(5, Math.round(score * 5)));
+    return '★'.repeat(n) + '☆'.repeat(5 - n);
+}
+async function fetchGamesForDate(date) { const data = await fetchNHL('v1/score/' + date); return data.games || []; }
+async function fetchTeamRoster(teamAbbrev) {
+    if (!teamAbbrev) return { forwards: [], defense: [], goalies: [] };
+    if (state.cache['roster_' + teamAbbrev]) return state.cache['roster_' + teamAbbrev];
+    try {
+        const data = await fetchNHL('v1/roster/' + teamAbbrev + '/current');
+        const roster = { forwards: data.forwards || [], defense: data.defense || [], goalies: data.goalies || [] };
+        state.cache['roster_' + teamAbbrev] = roster;
+        return roster;
+    } catch (e) { return { forwards: [], defense: [], goalies: [] }; }
+}
+async function fetchPlayerLanding(playerId) {
+    if (state.cache['player_' + playerId]) return state.cache['player_' + playerId];
+    try {
+        const data = await fetchNHL('v1/player/' + playerId + '/landing');
+        state.cache['player_' + playerId] = data;
+        return data;
+    } catch (e) { return null; }
+}
+async function fetchStandings() {
+    if (state.cache['standings']) return state.cache['standings'];
+    try {
+        const data = await fetchNHL('v1/standings/now');
+        state.cache['standings'] = data;
+        return data;
+    } catch (e) { return null; }
+}
+function extractPlayerStats(landing, playerId) {
+    if (!landing) return null;
+    const featured = landing.featuredStats?.regularSeason?.subSeason;
+    if (!featured) return null;
+    const gamesPlayed = Number(featured.gamesPlayed) || 0;
+    if (gamesPlayed < 5) return null;
+    const goals = Number(featured.goals) || 0;
+    const shots = Number(featured.shots) || 0;
+    const points = Number(featured.points) || 0;
+    const ppGoals = Number(featured.powerPlayGoals) || 0;
+    const toiRaw = featured.avgToi;
+    let toiMinutes = null;
+    if (toiRaw) {
+        const parts = String(toiRaw).split(':');
+        toiMinutes = parseInt(parts[0], 10) + (parseInt(parts[1] || 0, 10) / 60);
+    }
+    const shootingPct = shots > 0 ? goals / shots : null;
+    return { playerId, gamesPlayed, goals, shots, points, ppGoals, toiMinutes, shootingPct, goalsPerGame: goals / gamesPlayed, shotsPerGame: shots / gamesPlayed, ppGoalsRatio: goals > 0 ? ppGoals / goals : 0 };
+}
+function computeScore(playerStats, oppTeamStats, context) {
+    const factors = []; const availability = {};
+    const shotsNorm = normalize(playerStats.shotsPerGame, 0, 6);
+    if (shotsNorm !== null) {
+        factors.push({ name: 'Volume de tirs', score: shotsNorm, weight: MODEL_WEIGHTS.shots_volume, raw: playerStats.shotsPerGame.toFixed(2) + ' tirs/match',
+            type: shotsNorm > 0.6 ? 'pos' : (shotsNorm < 0.3 ? 'neg' : 'neu'), explanation: shotsNorm > 0.6 ? 'Volume de tirs élevé.' : shotsNorm < 0.3 ? 'Volume faible.' : 'Volume modéré.' });
+        availability.shots = 1;
+    } else availability.shots = 0;
+    const goalsNorm = normalize(playerStats.goalsPerGame, 0, 0.6);
+    if (goalsNorm !== null) {
+        factors.push({ name: 'Rythme de buts', score: goalsNorm, weight: MODEL_WEIGHTS.goals_rate, raw: playerStats.goalsPerGame.toFixed(2) + ' buts/match',
+            type: goalsNorm > 0.55 ? 'pos' : (goalsNorm < 0.15 ? 'neg' : 'neu'), explanation: goalsNorm > 0.55 ? 'Rythme élevé.' : goalsNorm < 0.15 ? 'Rythme faible.' : 'Rythme normal.' });
+        availability.goals = 1;
+    } else availability.goals = 0;
+    if (playerStats.shootingPct !== null) {
+        const pctNorm = normalize(playerStats.shootingPct, 0.02, 0.25);
+        factors.push({ name: 'Efficacité au tir', score: pctNorm, weight: MODEL_WEIGHTS.shooting_pct, raw: (playerStats.shootingPct * 100).toFixed(1) + '%',
+            type: pctNorm > 0.7 ? 'pos' : (pctNorm < 0.3 ? 'neg' : 'neu'), explanation: pctNorm > 0.7 ? 'Efficacité élevée.' : pctNorm < 0.3 ? 'Efficacité faible.' : 'Efficacité normale.' });
+        availability.shooting_pct = 1;
+    } else availability.shooting_pct = 0;
+    if (playerStats.toiMinutes !== null) {
+        const toiNorm = normalize(playerStats.toiMinutes, 10, 25);
+        factors.push({ name: 'Temps de glace', score: toiNorm, weight: MODEL_WEIGHTS.toi, raw: playerStats.toiMinutes.toFixed(1) + ' min/match',
+            type: toiNorm > 0.55 ? 'pos' : (toiNorm < 0.3 ? 'neg' : 'neu'), explanation: toiNorm > 0.55 ? 'TOI élevé.' : toiNorm < 0.3 ? 'TOI limité.' : 'TOI moyen.' });
+        availability.toi = 1;
+    } else availability.toi = 0;
+    const ppRatio = playerStats.ppGoalsRatio;
+    const ppNorm = Math.min(1, ppRatio * 2);
+    factors.push({ name: 'Power play', score: ppNorm, weight: MODEL_WEIGHTS.power_play, raw: playerStats.ppGoals + ' PP / ' + playerStats.goals + ' buts',
+        type: ppRatio > 0.4 ? 'pos' : (ppRatio < 0.1 ? 'neg' : 'neu'), explanation: ppRatio > 0.4 ? 'Utilisé en PP.' : ppRatio < 0.1 ? 'Peu de PP.' : 'PP normal.' });
+    availability.pp = 0.7;
+    if (oppTeamStats && oppTeamStats.goalsAgainstPerGame !== null && oppTeamStats.goalsAgainstPerGame !== undefined) {
+        const oppNorm = normalize(oppTeamStats.goalsAgainstPerGame, 2.0, 4.5);
+        if (oppNorm !== null) {
+            factors.push({ name: 'Défense adverse', score: oppNorm, weight: MODEL_WEIGHTS.opp_defense, raw: oppTeamStats.goalsAgainstPerGame.toFixed(2) + ' buts encaissés',
+                type: oppNorm > 0.6 ? 'pos' : (oppNorm < 0.3 ? 'neg' : 'neu'), explanation: oppNorm > 0.6 ? 'Défense perméable.' : oppNorm < 0.3 ? 'Défense solide.' : 'Défense moyenne.' });
+            availability.opp_defense = 1;
+        } else availability.opp_defense = 0;
+    } else {
+        factors.push({ name: 'Défense adverse', score: 0.5, weight: MODEL_WEIGHTS.opp_defense * 0.5, raw: 'indisponible', type: 'neu', explanation: 'Données adverses manquantes.' });
+        availability.opp_defense = 0;
+    }
+    if (context.isHome !== null && context.isHome !== undefined) {
+        factors.push({ name: 'Domicile/Extérieur', score: context.isHome ? 0.65 : 0.35, weight: MODEL_WEIGHTS.home_ice, raw: context.isHome ? 'Domicile' : 'Extérieur',
+            type: context.isHome ? 'pos' : 'neu', explanation: context.isHome ? 'Avantage domicile.' : 'Match extérieur.' });
+        availability.home = 1;
+    } else availability.home = 0;
+    let totalWeight = 0, weighted = 0;
+    for (const f of factors) { weighted += f.score * f.weight; totalWeight += Math.abs(f.weight); }
+    const rawScore = totalWeight > 0 ? weighted / totalWeight : 0.5;
+    const finalProb = Math.max(0.03, Math.min(0.42, 0.10 + (rawScore - 0.5) * 0.22));
+    const confValues = Object.values(availability);
+    const confidence = confValues.length > 0 ? confValues.reduce((a, b) => a + b, 0) / confValues.length : 0;
+    return { probability: finalProb, confidence, factors, dataAvailability: availability, rawScore };
+}
+function generateExplanation(name, score) {
+    const lines = [];
+    if (score.probability > 0.22) lines.push(name + ' ressort comme profil intéressant.');
+    else if (score.probability > 0.14) lines.push(name + ' présente un profil correct.');
+    else lines.push(name + ' présente un profil limité.');
+    const positives = score.factors.filter(f => f.type === 'pos');
+    if (positives.length) { lines.push(''); lines.push('Favorables :'); positives.forEach(f => lines.push('• ' + f.name + ' (' + f.raw + ') — ' + f.explanation)); }
+    const negatives = score.factors.filter(f => f.type === 'neg');
+    if (negatives.length) { lines.push(''); lines.push('Défavorables :'); negatives.forEach(f => lines.push('• ' + f.name + ' (' + f.raw + ') — ' + f.explanation)); }
+    lines.push(''); lines.push('Confiance : ' + Math.round(score.confidence * 100) + '%.');
+    return lines.join('\n');
+}
+async function loadGames() {
+    if (!state.backendUrl) {
+        document.getElementById('games-container').innerHTML = '<div class="error-box"><div class="eb-title">Backend non configuré</div><div class="eb-msg">Colle l\'URL de ton backend en haut.</div></div>';
+        return;
+    }
+    state.loading = true; setStatus('Chargement…');
+    const container = document.getElementById('games-container');
+    container.innerHTML = '<div class="loading-box"><div class="spinner-lg"></div><div>Chargement…</div></div>';
+    try {
+        const games = await fetchGamesForDate(state.date);
+        state.games = games;
+        document.getElementById('games-badge').textContent = games.length;
+        if (games.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="es-icon">📅</div><div>Aucun match le ' + esc(state.date) + '.</div></div>';
+        } else { renderGames(games); showToast(games.length + ' match(s)', 'success'); }
+    } catch (e) {
+        container.innerHTML = '<div class="error-box"><div class="eb-title">Erreur</div><div class="eb-msg">' + esc(e.message) + '</div><button id="retry-games-btn">↻ Réessayer</button></div>';
+        const b = document.getElementById('retry-games-btn'); if (b) b.addEventListener('click', () => { state.cache = {}; loadGames(); });
+    }
+    setStatus(null); state.loading = false;
+}
+function renderGames(games) {
+    const container = document.getElementById('games-container');
+    container.innerHTML = games.map(g => {
+        const home = g.homeTeam || {}, away = g.awayTeam || {};
+        const homeName = home.commonName?.default || home.abbrev || '?';
+        const awayName = away.commonName?.default || away.abbrev || '?';
+        const startTime = g.startTimeUTC ? new Date(g.startTimeUTC).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+        return '<div class="game-card">' +
+            '<div class="gc-header"><span>' + esc(startTime) + ' · ' + esc(g.venue?.default || '') + '</span><span>' + esc(g.gameState || 'FUT') + '</span></div>' +
+            '<div class="gc-teams">' +
+                '<div class="gc-team">' + (away.logo ? '<img src="' + esc(away.logo) + '" onerror="this.style.display=\'none\'">' : '') + '<div class="gc-name">' + esc(awayName) + '</div></div>' +
+                '<div class="gc-vs">VS</div>' +
+                '<div class="gc-team">' + (home.logo ? '<img src="' + esc(home.logo) + '" onerror="this.style.display=\'none\'">' : '') + '<div class="gc-name">' + esc(homeName) + '</div></div>' +
+            '</div>' +
+            '<div class="gc-footer"><span>ID: ' + esc(g.id) + '</span><button class="gc-analyze-btn primary" data-game-id="' + g.id + '">🔍 Analyser</button></div></div>';
+    }).join('');
+    container.querySelectorAll('[data-game-id]').forEach(btn => btn.addEventListener('click', () => analyzeGame(Number(btn.dataset.gameId), btn)));
+}
+async function analyzeGame(gameId, btn) {
+    const game = state.games.find(g => Number(g.id) === Number(gameId)); if (!game) return;
+    const homeAbbrev = game.homeTeam?.abbrev, awayAbbrev = game.awayTeam?.abbrev;
+    if (!homeAbbrev || !awayAbbrev) { showToast('Données incomplètes', 'error'); return; }
+    if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+    setStatus('Analyse…');
+    try {
+        const [homeRoster, awayRoster, standings] = await Promise.all([fetchTeamRoster(homeAbbrev), fetchTeamRoster(awayAbbrev), fetchStandings()]);
+        const homeTeamStats = extractTeamStats(standings, homeAbbrev);
+        const awayTeamStats = extractTeamStats(standings, awayAbbrev);
+        const homePlayers = await buildPlayerList(homeRoster, awayTeamStats, { isHome: true });
+        const awayPlayers = await buildPlayerList(awayRoster, homeTeamStats, { isHome: false });
+        const all = [...homePlayers, ...awayPlayers].sort((a, b) => b.score.probability - a.score.probability);
+        state.topPlayers = all.slice(0, 20);
+        renderTopPlayers();
+        document.getElementById('top-badge').textContent = state.topPlayers.length;
+        showToast('✅ ' + state.topPlayers.length + ' profils', 'success');
+        document.getElementById('section-top').scrollIntoView({ behavior: 'smooth' });
+    } catch (e) { showToast('Erreur : ' + e.message, 'error', 4000); }
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 Analyser'; }
+    setStatus(null);
+}
+function extractTeamStats(standings, abbrev) {
+    if (!standings || !standings.standings) return null;
+    const team = standings.standings.find(s => s.teamAbbrev?.default === abbrev);
+    if (!team) return null;
+    return { goalsAgainstPerGame: team.goalAgainstPerGame || null, goalsForPerGame: team.goalForPerGame || null, points: team.points || null };
+}
+async function buildPlayerList(roster, oppTeamStats, context) {
+    const players = [];
+    const allSkaters = [...(roster.forwards || []), ...(roster.defense || [])].slice(0, 10);
+    for (const p of allSkaters) {
+        const playerId = p.id;
+        const landing = await fetchPlayerLanding(playerId); if (!landing) continue;
+        const stats = extractPlayerStats(landing, playerId); if (!stats) continue;
+        const score = computeScore(stats, oppTeamStats, { isHome: context.isHome });
+        const name = ((p.firstName?.default || '') + ' ' + (p.lastName?.default || '')).trim();
+        const teamAbbrev = p.currentTeamAbbrev || '';
+        players.push({
+            id: playerId, name: name || ('Joueur #' + playerId), position: p.positionCode || '?', sweaterNumber: p.sweaterNumber || '?',
+            teamAbbrev, teamLogo: 'https://assets.nhle.com/logos/nhl/svg/' + teamAbbrev + '_light.svg',
+            photo: 'https://assets.nhle.com/mugs/nhl/20242025/' + teamAbbrev + '/' + playerId + '.png',
+            stats, score, explanation: generateExplanation(name || 'Ce joueur', score)
+        });
+    }
+    return players;
+}
+function renderTopPlayers() {
+    const container = document.getElementById('top-container');
+    if (state.topPlayers.length === 0) { container.innerHTML = '<div class="empty-state"><div class="es-icon">📊</div><div>Aucun joueur analysé.</div></div>'; return; }
+    container.innerHTML = state.topPlayers.map((p, i) => {
+        const probPct = (p.score.probability * 100).toFixed(1);
+        const confPct = Math.round(p.score.confidence * 100);
+        const shotsF = p.score.factors.find(f => f.name === 'Volume de tirs');
+        const goalsF = p.score.factors.find(f => f.name === 'Rythme de buts');
+        const toiF = p.score.factors.find(f => f.name === 'Temps de glace');
+        const oppF = p.score.factors.find(f => f.name === 'Défense adverse');
+        const bars = [{ label: 'Tirs', score: shotsF?.score || 0 }, { label: 'Buts', score: goalsF?.score || 0 }, { label: 'TOI', score: toiF?.score || 0 }, { label: 'Déf.adv.', score: oppF?.score || 0 }];
+        const barsHtml = bars.map(b => {
+            const pct = Math.round(b.score * 100);
+            return '<div class="pc-bar"><div class="pc-bar-label"><span>' + b.label + '</span><span>' + pct + '%</span></div><div class="pc-bar-track"><div class="pc-bar-fill" style="width:' + pct + '%"></div></div></div>';
+        }).join('');
+        const tagsHtml = p.score.factors.filter(f => f.type !== 'neu').slice(0, 4).map(f => '<span class="pc-factor ' + f.type + '">' + (f.type === 'pos' ? '✓ ' : '✗ ') + esc(f.name) + '</span>').join('');
+        const rankClass = i === 0 ? 'top-1' : i === 1 ? 'top-2' : i === 2 ? 'top-3' : '';
+        return '<div class="player-card ' + rankClass + '" data-player-index="' + i + '">' +
+            '<div class="pc-header"><div class="pc-rank">' + (i + 1) + '</div>' +
+            '<div class="pc-photo"><img src="' + esc(p.photo) + '" onerror="this.style.display=\'none\'"></div>' +
+            '<div class="pc-info"><div class="pc-name">' + esc(p.name) + '</div>' +
+            '<div class="pc-teams"><img src="' + esc(p.teamLogo) + '" onerror="this.style.display=\'none\'"><span>' + esc(p.teamAbbrev) + ' · #' + esc(p.sweaterNumber) + ' · ' + esc(p.position) + '</span></div></div>' +
+            '<div class="pc-score"><div class="pc-prob">' + probPct + '%</div><div class="pc-conf">Conf. ' + confPct + '%</div></div></div>' +
+            '<div class="pc-bars">' + barsHtml + '</div><div class="pc-factors">' + tagsHtml + '</div></div>';
+    }).join('');
+    container.querySelectorAll('[data-player-index]').forEach(card => card.addEventListener('click', () => openPlayerModal(parseInt(card.dataset.playerIndex, 10))));
+}
+function openPlayerModal(index) {
+    const p = state.topPlayers[index]; if (!p) return;
+    const overlay = document.getElementById('modal-overlay');
+    const modal = document.getElementById('modal');
+    const probPct = (p.score.probability * 100).toFixed(1);
+    const confPct = Math.round(p.score.confidence * 100);
+    const starsHtml = p.score.factors.map(f => '<div class="m-stars"><span class="ms-label">' + esc(f.name) + '</span><span class="ms-value">' + starsFromScore(f.score) + '</span></div>').join('');
+    const factorsHtml = p.score.factors.map(f => '<div class="m-factor ' + f.type + '"><span class="mf-icon">' + (f.type === 'pos' ? '✓' : f.type === 'neg' ? '✗' : '•') + '</span><span class="mf-text"><strong>' + esc(f.name) + '</strong> (' + esc(f.raw) + ') — ' + esc(f.explanation) + '</span></div>').join('');
+    const s = p.stats;
+    const statsHtml = [['Matchs', s.gamesPlayed], ['Buts', s.goals], ['Tirs', s.shots], ['Buts/match', s.goalsPerGame.toFixed(3)], ['Tirs/match', s.shotsPerGame.toFixed(2)],
+        ['Efficacité', s.shootingPct !== null ? (s.shootingPct * 100).toFixed(1) + '%' : '—'], ['Buts PP', s.ppGoals], ['TOI', s.toiMinutes !== null ? s.toiMinutes.toFixed(1) + ' min' : '—']].map(([k, v]) => '<div class="m-stars"><span class="ms-label">' + esc(k) + '</span><span class="ms-value" style="color:var(--ink);">' + esc(v) + '</span></div>').join('');
+    const explainHtml = esc(p.explanation).replace(/\n/g, '<br>');
+    modal.innerHTML = '<div class="m-close"><button id="modal-close-btn">✕</button></div>' +
+        '<div class="m-header"><div class="m-photo"><img src="' + esc(p.photo) + '" onerror="this.style.display=\'none\'"></div>' +
+        '<div><div class="m-name">' + esc(p.name) + '</div><div class="m-team"><img src="' + esc(p.teamLogo) + '" onerror="this.style.display=\'none\'"><span>' + esc(p.teamAbbrev) + ' · #' + esc(p.sweaterNumber) + '</span></div></div></div>' +
+        '<div class="m-prob"><div class="m-prob-card"><div class="mpc-value">' + probPct + '%</div><div class="mpc-label">Probabilité</div></div><div class="m-prob-card"><div class="mpc-value">' + confPct + '%</div><div class="mpc-label">Confiance</div></div></div>' +
+        '<div class="m-section"><div class="m-section-title">📊 Saison</div>' + statsHtml + '</div>' +
+        '<div class="m-section"><div class="m-section-title">⭐ Notes</div>' + starsHtml + '</div>' +
+        '<div class="m-section"><div class="m-section-title">🔍 Détail</div><div class="m-factors">' + factorsHtml + '</div></div>' +
+        '<div class="m-section"><div class="m-section-title">📝 Pourquoi</div><div class="m-explain">' + explainHtml + '</div></div>';
+    overlay.classList.add('visible');
+    document.getElementById('modal-close-btn').addEventListener('click', closeModal);
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('visible'); }
+(function init() {
+    const backendInput = document.getElementById('backend-url');
+    const savedUrl = getBackendUrl(); if (savedUrl) { backendInput.value = savedUrl; state.backendUrl = savedUrl; }
+    updateBackendDiag();
+    document.getElementById('backend-save-btn').addEventListener('click', async () => {
+        const url = backendInput.value.trim();
+        if (!url) { showToast('Entre une URL', 'error'); return; }
+        if (!/^https?:\/\//.test(url)) { showToast('URL invalide', 'error'); return; }
+        const btn = document.getElementById('backend-save-btn'); btn.disabled = true; btn.textContent = 'Test…';
+        try { await testBackend(url); setBackendUrl(url); updateBackendDiag(); showToast('✅ Backend OK', 'success'); state.cache = {}; loadGames(); }
+        catch (e) { showToast('Backend injoignable : ' + e.message, 'error', 4000); }
+        btn.disabled = false; btn.textContent = 'Enregistrer et tester';
+    });
+    const dateInput = document.getElementById('date-input'); dateInput.value = state.date;
+    dateInput.addEventListener('change', e => { state.date = e.target.value; });
+    document.getElementById('refresh-btn').addEventListener('click', () => { state.cache = {}; loadGames(); });
+    document.querySelectorAll('[data-toggle]').forEach(header => header.addEventListener('click', () => { const el = document.getElementById(header.dataset.toggle); if (el) el.classList.toggle('open'); }));
+    document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target.id === 'modal-overlay') closeModal(); });
+    if (state.backendUrl) loadGames();
+    log('Hockey prêt.');
+})();
+</script>
+
+</body>
+</html>
